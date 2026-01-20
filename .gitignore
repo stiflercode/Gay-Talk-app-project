@@ -1,0 +1,51 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+*.iml
+.idea/
+*.log
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+*.aab
+*.jks
+*.keystore
+local.properties
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework/
+
+# Node.js (Backend)
+backend/node_modules/
+backend/npm-debug.log
+backend/yarn-error.log
+
+# Environment files (contain secrets - be careful!)
+# Uncomment the line below if you don't want to commit .env files
+# backend/.env
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.lock
+!pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Zip files created for sharing
+*.zip

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "243169198439",
+    "project_id": "gey-talk",
+    "storage_bucket": "gey-talk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243169198439:android:8e9e67fda7bb9557702fc2",
+        "android_client_info": {
+          "package_name": "com.geytalk.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "243169198439-7d2qn3hceqvke1ullj0cnj8gn10r66fj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.geytalk.app",
+            "certificate_hash": "10a8456541f8cae0cd8355685b6cf14b6f9bc390"
+          }
+        },
+        {
+          "client_id": "243169198439-jb25t84p6214sq3oh11hh0kqk2lacak8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAadONE8UCot2uxgURip2DzrBpQsH0p3Po"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "243169198439-jb25t84p6214sq3oh11hh0kqk2lacak8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
