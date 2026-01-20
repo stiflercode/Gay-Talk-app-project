@@ -543,19 +543,8 @@ class _CallScreenState extends State<CallScreen> {
           if (currentBalance < coinsPer10Sec) {
             debugPrint('Insufficient balance. Ending call.');
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Insufficient coins. Call ending...'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              _showInsufficientBalancePopup();
             }
-            // End call if insufficient balance
-            Future.delayed(const Duration(seconds: 1), () {
-              if (mounted && !_isEndingCall) {
-                _endCall();
-              }
-            });
             return;
           }
 
@@ -591,6 +580,63 @@ class _CallScreenState extends State<CallScreen> {
     final m = sec ~/ 60;
     final s = sec % 60;
     return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  }
+
+  void _showInsufficientBalancePopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.account_balance_wallet, size: 40, color: Colors.red.shade700),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Low Balance!',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Your coins are finished. Please recharge to continue talking to your friends.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _endCall();
+              // In a real app, you'd navigate to the payment/recharge screen here
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+            ),
+            child: const Text('Add Coins', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    // Auto-end call after a delay if they don't click
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted && !_isEndingCall) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close dialog
+        _endCall();
+      }
+    });
   }
 
   Future<void> _endCall() async {
