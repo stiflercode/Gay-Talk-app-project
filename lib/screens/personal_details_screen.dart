@@ -45,17 +45,15 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     await widget.prefs.setString('gender', _gender);
     // Mark profile as completely onboarding-done locally if needed, but 'profileComplete' in firestore is key
 
-    // Save to Firestore
+    // Save to backend
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // We only update name, age, gender as requested
-        await _userService.createOrUpdateUser(
-          user, 
-          name: name, 
-          age: age, 
-          gender: _gender,
-          isProfileComplete: true // Mark as complete so they don't see this again
+        // Update profile with name and mark as complete
+        await _userService.updateProfile(
+          uid: user.uid,
+          displayName: name,
+          profileComplete: true, // Mark as complete so they don't see this again
         );
       } catch (e) {
         debugPrint('Failed to save personal details to server: $e');

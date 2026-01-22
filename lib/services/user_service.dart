@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
 import '../config/api_config.dart';
+import 'auth_service.dart';
 
 class UserService {
   // Use centralized API config for automatic emulator/physical device detection
@@ -12,59 +12,53 @@ class UserService {
   static final http.Client _client = http.Client();
   static const Duration _timeout = Duration(seconds: 10);
 
-  /// Creates or updates user doc via HTTP backend (MongoDB)
-  Future<void> createOrUpdateUser(User user, {
-    String? role, 
-    String? fcmToken,
-    String? name,
-    int? age,
-    String? gender,
-    String? phone,
-    String? username,
-    bool? isProfileComplete,
-    String? language,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': user.uid,
-          'email': user.email,
-          'displayName': name ?? user.displayName,
-          'role': role,
-          'fcmToken': fcmToken,
-          'name': name,
-          'age': age,
-          'gender': gender,
-          'phone': phone,
-          'username': username,
-          'profileComplete': isProfileComplete,
-          'language': language,
-        }),
-      ).timeout(_timeout);
+  final AuthService _authService = AuthService();
+
+  /// Get authorization headers with JWT token
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final token = await _authService.getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Handle API response and retry with token refresh if needed
+  Future<http.Response> _makeAuthenticatedRequest(
+    Future<http.Response> Function(Map<String, String> headers) request,
+  ) async {
+    // First attempt with current token
+    var headers = await _getAuthHeaders();
+    var response = await request(headers);
+
+    // If unauthorized, try refreshing token and retry once
+    if (response.statusCode == 401) {
+      debugPrint('⚠️ Token expired, attempting refresh...');
+      final refreshed = await _authService.refreshAccessToken();
       
-      if (response.statusCode == 200) {
-        debugPrint('User updated in MongoDB successfully: ${user.uid}');
-      } else {
-        debugPrint('Failed to update user: ${response.body}');
+      if (refreshed) {
+        // Retry request with new token
+        headers = await _getAuthHeaders();
+        response = await request(headers);
       }
-    } catch (e) {
-      debugPrint('Error updating user: $e');
     }
+
+    return response;
   }
 
   /// Update isOnline status
   Future<void> updateOnlineStatus(String uid, bool isOnline) async {
     try {
-      await http.post(
-        Uri.parse('$baseUrl/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'isOnline': isOnline,
-        }),
-      ).timeout(_timeout);
+      await _makeAuthenticatedRequest((headers) => 
+        http.post(
+          Uri.parse('$baseUrl/update'),
+          headers: headers,
+          body: jsonEncode({
+            'uid': uid,
+            'isOnline': isOnline,
+          }),
+        ).timeout(_timeout)
+      );
     } catch (e) {
       debugPrint('Error updating online status: $e');
     }
@@ -73,14 +67,16 @@ class UserService {
   /// Update FCM token for a user
   Future<void> updateFCMToken(String uid, String fcmToken) async {
     try {
-      await http.post(
-        Uri.parse('$baseUrl/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'fcmToken': fcmToken,
-        }),
-      ).timeout(_timeout);
+      await _makeAuthenticatedRequest((headers) =>
+        http.post(
+          Uri.parse('$baseUrl/update'),
+          headers: headers,
+          body: jsonEncode({
+            'uid': uid,
+            'fcmToken': fcmToken,
+          }),
+        ).timeout(_timeout)
+      );
     } catch (e) {
       debugPrint('Error updating FCM token: $e');
     }
@@ -89,7 +85,13 @@ class UserService {
   /// Get user role
   Future<String> getUserRole(String uid) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/role/$uid')).timeout(_timeout);
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.get(
+          Uri.parse('$baseUrl/role/$uid'),
+          headers: headers,
+        ).timeout(_timeout)
+      );
+      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['role'] ?? 'user';
@@ -106,9 +108,13 @@ class UserService {
     
     return Stream.fromFuture(() async {
       try {
-        final response = await http.get(
-          Uri.parse('$baseUrl/list?excludeUid=$excludeUid&role=$roleFilter'),
+        final response = await _makeAuthenticatedRequest((headers) =>
+          http.get(
+            Uri.parse('$baseUrl/list?excludeUid=$excludeUid&role=$roleFilter'),
+            headers: headers,
+          )
         );
+        
         if (response.statusCode == 200) {
           final List<dynamic> data = jsonDecode(response.body);
           return data.cast<Map<String, dynamic>>();
@@ -123,7 +129,13 @@ class UserService {
   /// Get user by UID
   Future<UserSnapshot> getUser(String uid) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/$uid')).timeout(_timeout);
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.get(
+          Uri.parse('$baseUrl/$uid'),
+          headers: headers,
+        ).timeout(_timeout)
+      );
+      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['exists'] == true && data['user'] != null) {
@@ -165,16 +177,19 @@ class UserService {
     bool? profileComplete,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/profile'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'language': language,
-          'displayName': displayName,
-          'profileComplete': profileComplete,
-        }),
-      ).timeout(_timeout);
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.post(
+          Uri.parse('$baseUrl/profile'),
+          headers: headers,
+          body: jsonEncode({
+            'uid': uid,
+            'language': language,
+            'displayName': displayName,
+            'profileComplete': profileComplete,
+          }),
+        ).timeout(_timeout)
+      );
+      
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error updating profile: $e');
@@ -189,15 +204,18 @@ class UserService {
     required String operation, // 'add', 'subtract', or 'set'
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/wallet'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'amount': amount,
-          'operation': operation,
-        }),
-      ).timeout(_timeout);
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.post(
+          Uri.parse('$baseUrl/wallet'),
+          headers: headers,
+          body: jsonEncode({
+            'uid': uid,
+            'amount': amount,
+            'operation': operation,
+          }),
+        ).timeout(_timeout)
+      );
+      
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return (data['walletBalance'] ?? 0).toDouble();

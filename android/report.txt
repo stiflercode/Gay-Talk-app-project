@@ -1,0 +1,57 @@
+﻿> Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle:compileKotlin UP-TO-DATE
+> Task :gradle:compileJava NO-SOURCE
+> Task :gradle:compileGroovy NO-SOURCE
+> Task :gradle:pluginDescriptors UP-TO-DATE
+> Task :gradle:processResources UP-TO-DATE
+> Task :gradle:classes UP-TO-DATE
+> Task :gradle:jar UP-TO-DATE
+
+> Task :app:signingReport
+Variant: debug
+Config: debug
+Store: C:\Android\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: 1F:67:82:80:94:1F:D1:1C:EC:48:49:0D:0D:B6:70:79
+SHA1: 10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90
+SHA-256: 94:E1:07:64:F1:45:FF:0C:83:27:FA:78:F6:64:9B:FB:45:FF:E0:34:AA:94:03:21:6E:69:3B:46:15:2A:21:8B
+Valid until: Monday, 10 January, 2056
+----------
+Variant: release
+Config: debug
+Store: C:\Android\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: 1F:67:82:80:94:1F:D1:1C:EC:48:49:0D:0D:B6:70:79
+SHA1: 10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90
+SHA-256: 94:E1:07:64:F1:45:FF:0C:83:27:FA:78:F6:64:9B:FB:45:FF:E0:34:AA:94:03:21:6E:69:3B:46:15:2A:21:8B
+Valid until: Monday, 10 January, 2056
+----------
+Variant: profile
+Config: debug
+Store: C:\Android\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: 1F:67:82:80:94:1F:D1:1C:EC:48:49:0D:0D:B6:70:79
+SHA1: 10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90
+SHA-256: 94:E1:07:64:F1:45:FF:0C:83:27:FA:78:F6:64:9B:FB:45:FF:E0:34:AA:94:03:21:6E:69:3B:46:15:2A:21:8B
+Valid until: Monday, 10 January, 2056
+----------
+Variant: debugAndroidTest
+Config: debug
+Store: C:\Android\.android\debug.keystore
+Alias: AndroidDebugKey
+MD5: 1F:67:82:80:94:1F:D1:1C:EC:48:49:0D:0D:B6:70:79
+SHA1: 10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90
+SHA-256: 94:E1:07:64:F1:45:FF:0C:83:27:FA:78:F6:64:9B:FB:45:FF:E0:34:AA:94:03:21:6E:69:3B:46:15:2A:21:8B
+Valid until: Monday, 10 January, 2056
+----------
+
+[Incubating] Problems report is available at: file:///C:/Users/shrey/OneDrive/Desktop/gaytalk_codebase_updated/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 2s
+5 actionable tasks: 1 executed, 4 up-to-date

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 
+import 'agora_token_service.dart';
+
 class AgoraRtmService {
   static const String appId = "150c2f1929d34588a6584a43ab6c7d48";
   // Use centralized API config for automatic emulator/physical device detection
@@ -24,29 +26,9 @@ class AgoraRtmService {
   /// Get current user ID
   String? get currentUserId => _currentUserId;
 
-  /// Fetch RTM token from backend with timeout
+  /// Fetch RTM token from backend using the authenticated service
   Future<String?> _fetchRtmToken(String userId) async {
-    try {
-      debugPrint('RTM: Fetching token from $baseUrl/rtm-token for user: $userId');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/rtm-token'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'uid': userId}),
-      ).timeout(const Duration(seconds: 10));
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        debugPrint('RTM: Token fetched successfully');
-        return data['token'];
-      } else {
-        debugPrint('RTM: Failed to fetch token - Status ${response.statusCode}: ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('RTM: Error fetching token: $e');
-      return null;
-    }
+    return await AgoraTokenService.fetchRtmTokenFromServer(uid: userId);
   }
 
   Future<void> initialize(String userId) async {

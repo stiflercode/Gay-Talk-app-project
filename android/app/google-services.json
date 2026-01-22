@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "243169198439-trk4vhgkrdvke7don8j6gmggh50lc719.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.geytalk.app",
+            "certificate_hash": "e03f8169532082c7376f901fe83faa245450b5a6"
+          }
+        },
+        {
           "client_id": "243169198439-jb25t84p6214sq3oh11hh0kqk2lacak8.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,11 +1,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
-import '../services/user_service.dart';
 import 'language_selection_screen.dart';
+import 'personal_details_screen.dart';
 import 'home_page.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,31 +18,20 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _auth = AuthService();
-  final UserService _userService = UserService();
   bool _loading = false;
   int _logoTapCount = 0; // Track logo taps for hidden email login
-
-  /// Returns true if the user is registered (uses MongoDB backend)
-  Future<bool> _isUserRegisteredOnServer(User user) async {
-    try {
-      // Use UserService to check registration via HTTP/MongoDB
-      return await _userService.isUserRegistered(user.uid);
-    } catch (e) {
-      // On any error, conservatively treat as not registered (so user completes onboarding)
-      debugPrint('Error checking registration status: $e');
-      return false;
-    }
-  }
 
   Future<void> _signIn() async {
     if (_loading) return;
     setState(() => _loading = true);
 
     try {
-      // Attempt Google sign-in (returns Firebase User or null if cancelled)
-      final User? user = await _auth.signInWithGoogle();
+      // Attempt Google sign-in and backend login (returns user data from backend)
+      final userData = await _auth.signInWithGoogle();
+      debugPrint('👤 Sign-in response userData: $userData');
 
-      if (user == null) {
+      if (userData == null) {
+
         // User cancelled the flow
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -52,32 +40,26 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Save/update user in Firestore (non-fatal)
-      try {
-        await _userService.createOrUpdateUser(user);
-      } catch (e) {
-        debugPrint('Failed to create/update user in Firestore: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save profile remotely: $e')),
-          );
-        }
-      }
-
       // Save lightweight info locally
-      await widget.prefs.setString('user_email', user.email ?? '');
-      await widget.prefs.setString('user_name', user.displayName ?? '');
+      await widget.prefs.setString('email', userData['email'] ?? '');
+      await widget.prefs.setString('name', userData['displayName'] ?? '');
 
-      // --- Server-side check: is user already registered? ---
-      final registered = await _isUserRegisteredOnServer(user);
+      // Check if user profile is complete (from backend response)
+      final profileComplete = userData['profileComplete'] ?? false;
+      final language = userData['language'];
+      final hasLanguage = language != null && language.toString().trim().isNotEmpty;
 
       if (!mounted) return;
-      if (registered) {
-        // already registered: go to Home
+      
+      if (profileComplete) {
+        // Fully registered: go to Home
         Navigator.of(context).pushReplacementNamed(HomePage.routeName);
-      } else {
-        // not registered: go to Language selection (onboarding)
+      } else if (!hasLanguage) {
+        // No language selected yet: go to Language selection
         Navigator.of(context).pushReplacementNamed(LanguageSelectionScreen.routeName);
+      } else {
+        // Language selected but profile not complete: go to Personal Details
+        Navigator.of(context).pushReplacementNamed(PersonalDetailsScreen.routeName);
       }
     } catch (e) {
       // Show an error to the user
@@ -201,41 +183,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           });
 
                           try {
-                            User? user;
+                            Map<String, dynamic>? userData;
                             if (isSignUp) {
                               // Sign up
-                              user = await _auth.signUpWithEmailAndPassword(email, password);
+                              userData = await _auth.signUpWithEmailAndPassword(email, password);
                             } else {
                               // Sign in
-                              user = await _auth.signInWithEmailAndPassword(email, password);
+                              userData = await _auth.signInWithEmailAndPassword(email, password);
                             }
 
-                            if (user != null && mounted) {
-                              // Save/update user in Firestore
-                              try {
-                                await _userService.createOrUpdateUser(user);
-                              } catch (e) {
-                                debugPrint('Failed to create/update user in Firestore: $e');
-                              }
-
+                            if (userData != null && mounted) {
                               // Save lightweight info locally
-                              await widget.prefs.setString('user_email', user.email ?? '');
-                              await widget.prefs.setString('user_name', user.displayName ?? '');
+                              await widget.prefs.setString('email', userData['email'] ?? '');
+                              await widget.prefs.setString('name', userData['displayName'] ?? '');
 
-                              // Get Firebase ID token (generated automatically)
-                              final token = await user.getIdToken();
-                              if (token != null) {
-                                debugPrint('Firebase ID Token generated: ${token.substring(0, 20)}...');
-                              } else {
-                                debugPrint('Firebase ID Token generated successfully');
-                              }
-
-                              // Check if user is registered
-                              final registered = await _isUserRegisteredOnServer(user);
+                              // Check if user profile is complete (from backend response)
+                              final profileComplete = userData['profileComplete'] ?? false;
+                              final language = userData['language'];
+                              final hasLanguage = language != null && language.toString().trim().isNotEmpty;
 
                               if (mounted) {
                                 Navigator.of(context).pop(); // Close dialog
-                                if (registered) {
+                                if (profileComplete || hasLanguage) {
                                   // Already registered: go to Home
                                   Navigator.of(context).pushReplacementNamed(HomePage.routeName);
                                 } else {

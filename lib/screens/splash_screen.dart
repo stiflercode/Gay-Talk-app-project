@@ -53,9 +53,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'login_screen.dart';
 import 'personal_details_screen.dart';
+import 'language_selection_screen.dart';
 import 'home_page.dart';   // <-- redirect here instead of dashboard
 
 class SplashScreen extends StatefulWidget {
@@ -73,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(milliseconds: 700), () async {
+    Timer(const Duration(milliseconds: 1500), () async {
       final route = await decideInitialRoute(widget.prefs);
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed(route);
@@ -81,34 +83,75 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<String> decideInitialRoute(SharedPreferences prefs) async {
+    debugPrint('🔍 Deciding initial route...');
+    
+    // 1. Check Firebase Auth first (source of truth for identity)
+    final currentUser = FirebaseAuth.instance.currentUser;
+    debugPrint('👤 Firebase user: ${currentUser?.uid ?? "NULL"}');
+
+    // First, check if user has valid JWT tokens (new authentication system)
+    final accessToken = prefs.getString('jwt_access_token');
+    final refreshToken = prefs.getString('jwt_refresh_token');
+    
+    debugPrint('📝 Access token exists: ${accessToken != null && accessToken.isNotEmpty}');
+    debugPrint('📝 Refresh token exists: ${refreshToken != null && refreshToken.isNotEmpty}');
+    
+    // If not authenticated via Firebase OR no JWT tokens, must login
+    if (currentUser == null || accessToken == null || refreshToken == null) {
+      debugPrint('❌ Not fully authenticated - redirecting to login');
+      
+      // If we have half-state, clear it to be safe
+      if (accessToken != null || refreshToken != null) {
+        debugPrint('🧹 Clearing inconsistent token state');
+        await prefs.remove('access_token');
+        await prefs.remove('refresh_token');
+      }
+      
+      return LoginScreen.routeName;
+    }
+    
+    // 3. User is authenticated, check profile completion
     final hasName = prefs.getString('name')?.isNotEmpty ?? false;
     final hasLang = prefs.getString('lang') != null;
+    
+    debugPrint('📝 Has name: $hasName');
+    debugPrint('📝 Has language: $hasLang');
 
-    if (hasName) return HomePage.routeName;                     // <-- Go to HOME
-    if (hasLang) return PersonalDetailsScreen.routeName;        // Language set but no profile yet
-    return LoginScreen.routeName;                               // First time user
+    if (hasName) {
+      debugPrint('✅ Profile complete - redirecting to home');
+      return HomePage.routeName;
+    }
+    
+    if (hasLang) {
+      debugPrint('⚠️ Language set but no profile - redirecting to personal details');
+      return PersonalDetailsScreen.routeName;
+    }
+    
+    // Authenticated but no language/name - go to language selection
+    debugPrint('⚠️ Authenticated but fresh account - redirecting to language selection');
+    return LanguageSelectionScreen.routeName;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Rectangle Logo
+            // Simple icon instead of image
             Container(
-              width: 260,
-              height: 180,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12), // optional
+                color: Colors.purple.shade100,
+                shape: BoxShape.circle,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  "assets/images/logo.png",
-                  fit: BoxFit.cover, // fills the rectangle fully
-                ),
+              child: Icon(
+                Icons.chat_bubble_outline,
+                size: 50,
+                color: Colors.purple,
               ),
             ),
 
@@ -131,6 +174,13 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontSize: 16,
                 color: Colors.blue,
               ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Loading indicator
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
             ),
           ],
         ),

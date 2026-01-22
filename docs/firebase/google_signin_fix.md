@@ -20,12 +20,12 @@ Click **"Add fingerprint"** and add BOTH of these:
 
 #### Debug SHA-1 (for development/testing):
 ```
-46:6C:89:22:5C:E6:E3:59:B5:9F:C8:B4:EF:D5:1F:A7:0E:F3:72:69
+10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90
 ```
 
 #### Release SHA-1 (for production):
 ```
-C5:3E:78:B5:BD:45:3E:F7:14:5B:1C:AC:7C:AB:35:2F:DD:98:1E:46
+E0:3F:81:69:53:20:82:C7:37:6F:90:1F:E8:3F:AA:24:54:50:B5:A6
 ```
 
 **Important**: Add both fingerprints! You need the debug one for testing and the release one for production builds.
@@ -59,9 +59,9 @@ After updating `google-services.json`, check that the `com.gumbotech.gaytalks` e
 - The `android_info` section with `package_name` and `certificate_hash`
 
 ## Quick Reference
-- **Debug SHA-1**: `46:6C:89:22:5C:E6:E3:59:B5:9F:C8:B4:EF:D5:1F:A7:0E:F3:72:69`
-- **Release SHA-1**: `C5:3E:78:B5:BD:45:3E:F7:14:5B:1C:AC:7C:AB:35:2F:DD:98:1E:46`
-- **Package Name**: `com.gumbotech.gaytalks`
+- **Debug SHA-1**: `10:A8:45:65:41:F8:CA:E0:CD:83:55:68:5B:6C:F1:4B:6F:9B:C3:90`
+- **Release SHA-1**: `E0:3F:81:69:53:20:82:C7:37:6F:90:1F:E8:3F:AA:24:54:50:B5:A6`
+- **Package Name**: `com.geytalk.app`
 
 
 

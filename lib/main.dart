@@ -26,24 +26,73 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    debugPrint('🚀 App starting...');
+    WidgetsFlutterBinding.ensureInitialized();
+    debugPrint('✅ Flutter binding initialized');
 
-  // Initialize Firebase (works if google-services.json / plist added)
-  await Firebase.initializeApp();
-  // If you used FlutterFire CLI, replace above with:
-  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // 1. CRITICAL: Initialize Firebase first
+    debugPrint('🔥 Initializing Firebase...');
+    await Firebase.initializeApp();
+    debugPrint('✅ Firebase initialized');
 
-  // Initialize API config (detects emulator vs physical device)
-  await ApiConfig.initialize();
+    // 2. Load preferences
+    debugPrint('💾 Loading shared preferences...');
+    final prefs = await SharedPreferences.getInstance();
+    debugPrint('✅ Shared preferences loaded');
+    
+    // 3. Initialize API config
+    debugPrint('🌐 Initializing API config...');
+    await ApiConfig.initialize();
+    debugPrint('✅ API config initialized');
 
-  // Set up background message handler (must be called before runApp)
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    // Launch UI
+    debugPrint('🎨 Starting app UI...');
+    runApp(MyApp(prefs: prefs));
 
-  // Initialize notification service
-  await NotificationService().initialize();
+    // 4. DEFERRED: Non-critical services
+    _initializeBackgroundServices();
+    
+    debugPrint('🚀 Initial UI launched!');
+  } catch (e, stackTrace) {
+    debugPrint('❌ FATAL ERROR: $e');
+    _showErrorApp(e);
+  }
+}
 
-  final prefs = await SharedPreferences.getInstance();
-  runApp(MyApp(prefs: prefs));
+Future<void> _initializeBackgroundServices() async {
+  try {
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    // Initialize notification service
+    await NotificationService().initialize();
+    debugPrint('✅ Background services ready');
+  } catch (e) {
+    debugPrint('⚠️ Background init error: $e');
+  }
+}
+
+void _showErrorApp(Object e) {
+  runApp(MaterialApp(
+    home: Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 20),
+              const Text('App Initialization Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text('Error: $e', style: const TextStyle(fontSize: 14, color: Colors.red), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ));
 }
 
 class MyApp extends StatelessWidget {

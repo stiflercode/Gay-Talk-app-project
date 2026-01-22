@@ -44,10 +44,9 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/LaunchTheme">
 
-        <!-- REQUIRED for Agora SDK -->
         <meta-data
             android:name="io.agora.agora_app_id"
-            android:value="8535558d328344fb8aa1ddbcf2a4d8ed" />
+            android:value="150c2f1929d34588a6584a43ab6c7d48" />
 
         <activity
             android:name=".MainActivity"

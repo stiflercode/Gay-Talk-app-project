@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
+import 'auth_service.dart';
 
 /// Service for fetching Agora tokens from Node.js backend
 /// 
@@ -21,10 +21,45 @@ class AgoraTokenService {
   static String? _cachedChannelName;
   static int? _cachedUid;
 
+  // Singleton AuthService instance
+  static final AuthService _authService = AuthService();
+
+  /// Get authorization headers with JWT token
+  static Future<Map<String, String>> _getAuthHeaders() async {
+    final token = await _authService.getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Handle API response and retry with token refresh if needed
+  static Future<http.Response> _makeAuthenticatedRequest(
+    Future<http.Response> Function(Map<String, String> headers) request,
+  ) async {
+    // First attempt with current token
+    var headers = await _getAuthHeaders();
+    var response = await request(headers);
+
+    // If unauthorized, try refreshing token and retry once
+    if (response.statusCode == 401) {
+      debugPrint('⚠️ Token expired, attempting refresh...');
+      final refreshed = await _authService.refreshAccessToken();
+      
+      if (refreshed) {
+        // Retry request with new token
+        headers = await _getAuthHeaders();
+        response = await request(headers);
+      }
+    }
+
+    return response;
+  }
+
   /// Fetches a RTC token from your backend server for voice/video calls
   /// 
   /// Your server should:
-  /// 1. Authenticate the user (verify Firebase token)
+  /// 1. Authenticate the user (verify JWT token)
   /// 2. Generate Agora token using Agora SDK
   /// 3. Return token in format: {"token": "..."}
   static Future<String> fetchTokenFromServer({
@@ -45,23 +80,23 @@ class AgoraTokenService {
     try {
       debugPrint('Fetching RTC token from: $tokenServerUrl');
       
-      // Make request to your token server
-      final response = await http.post(
-        Uri.parse(tokenServerUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'channelName': channelName,
-          'uid': uid,
-          'role': 'publisher',
-          'expireTime': expireTime,
-        }),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Token request timeout');
-        },
+      // Make authenticated request to your token server
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.post(
+          Uri.parse(tokenServerUrl),
+          headers: headers,
+          body: jsonEncode({
+            'channelName': channelName,
+            'uid': uid,
+            'role': 'publisher',
+            'expireTime': expireTime,
+          }),
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw Exception('Token request timeout');
+          },
+        )
       );
 
       if (response.statusCode == 200) {
@@ -99,19 +134,19 @@ class AgoraTokenService {
     try {
       debugPrint('Fetching RTM token from: $rtmTokenUrl');
       
-      final response = await http.post(
-        Uri.parse(rtmTokenUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'uid': uid,
-        }),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('RTM Token request timeout');
-        },
+      final response = await _makeAuthenticatedRequest((headers) =>
+        http.post(
+          Uri.parse(rtmTokenUrl),
+          headers: headers,
+          body: jsonEncode({
+            'uid': uid,
+          }),
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw Exception('RTM Token request timeout');
+          },
+        )
       );
 
       if (response.statusCode == 200) {

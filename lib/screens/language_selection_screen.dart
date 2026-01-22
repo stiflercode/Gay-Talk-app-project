@@ -25,17 +25,15 @@ class LanguageSelectionScreen extends StatelessWidget {
     // 1) Save locally
     await prefs.setString('lang', code);
 
-    // 2) Save to MongoDB backend via UserService using createOrUpdateUser
-    // This ensures we save email, displayName, etc. on first write
+    // 2) Save to MongoDB backend via UserService
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
         final userService = UserService();
-        // createOrUpdateUser handles saving all basic user info
-        await userService.createOrUpdateUser(
-          user, 
+        // Update user profile with selected language
+        await userService.updateProfile(
+          uid: user.uid,
           language: code,
-          // We don't overwrite name/age/gender yet as that's next screen
         );
       } catch (e) {
         debugPrint('Could not save language on server: $e');

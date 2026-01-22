@@ -2,20 +2,40 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
-/// Centralized API configuration that automatically detects
-/// whether the app is running on an emulator or physical device
+/// Centralized API configuration
+/// 
+/// By default, uses production URL: https://gaytalks.gumbotech.in/api
+/// For local development, set useLocalDevelopment = true
 class ApiConfig {
-  // Change this IP when your network changes
-  static const String _physicalDeviceIp = '192.168.29.41';
+  // ============================================
+  // CONFIGURATION - Change these as needed
+  // ============================================
+  
+  /// Set to true for local development, false for production
+  static const bool useLocalDevelopment = true;
+  
+  /// Production base URL (HTTPS)
+  static const String _productionBaseUrl = 'https://gaytalks.gumbotech.in/api';
+  
+  /// Local development configuration
+  // 192.168.29.41 is your computer's local IP address. 
+  // Ensure your phone is connected to the SAME Wi-Fi network as your computer.
+  static const String _localDeviceIp = '192.168.29.41'; 
   static const String _emulatorIp = '10.0.2.2';
-  static const int _port = 3001;
+  static const int _localPort = 5000;
+  
+  // ============================================
+  // Internal state
+  // ============================================
   
   // Cached value for isEmulator check
   static bool? _isEmulatorCached;
   
   /// Initialize the config - call this from main() before runApp()
   static Future<void> initialize() async {
-    await _detectEmulator();
+    if (useLocalDevelopment) {
+      await _detectEmulator();
+    }
     printConfig();
   }
   
@@ -47,12 +67,22 @@ class ApiConfig {
   }
   
   /// Returns the appropriate base URL for the backend API
-  /// - Emulator: Uses 10.0.2.2 (Android's localhost alias)
-  /// - Physical device: Uses the computer's actual IP address
+  /// 
+  /// - Production (default): https://gaytalks.gumbotech.in/api
+  /// - Local Development: http://[IP]:[PORT]/api
+  ///   - Emulator: Uses 10.0.2.2 (Android's localhost alias)
+  ///   - Physical device: Uses the computer's actual IP address
   static String get baseUrl {
-    final ip = isEmulator ? _emulatorIp : _physicalDeviceIp;
-    return 'http://$ip:$_port/api';
+    if (useLocalDevelopment) {
+      final ip = isEmulator ? _emulatorIp : _localDeviceIp;
+      return 'http://$ip:$_localPort/api';
+    } else {
+      return _productionBaseUrl;
+    }
   }
+  
+  /// Authentication service endpoint
+  static String get authUrl => '$baseUrl/auth';
   
   /// User service endpoint
   static String get userUrl => '$baseUrl/user';
@@ -69,6 +99,9 @@ class ApiConfig {
   /// Check if running on an Android emulator (sync getter, uses cached value)
   static bool get isEmulator => _isEmulatorCached ?? false;
   
+  /// Check if using local development mode
+  static bool get isLocalDevelopment => useLocalDevelopment;
+  
   /// Manually set emulator mode (call this from main.dart if needed)
   static void setEmulatorMode(bool value) {
     _isEmulatorCached = value;
@@ -83,8 +116,12 @@ class ApiConfig {
   /// Debug: Print current configuration
   static void printConfig() {
     debugPrint('=== API Configuration ===');
-    debugPrint('Is Emulator: $isEmulator');
+    debugPrint('Environment: ${useLocalDevelopment ? "LOCAL DEVELOPMENT" : "PRODUCTION"}');
+    if (useLocalDevelopment) {
+      debugPrint('Is Emulator: $isEmulator');
+    }
     debugPrint('Base URL: $baseUrl');
+    debugPrint('Auth URL: $authUrl');
     debugPrint('User URL: $userUrl');
     debugPrint('========================');
   }

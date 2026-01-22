@@ -47,11 +47,18 @@ class _UPIVerifyScreenState extends State<UPIVerifyScreen> {
     setState(() => _processing = true);
 
     try {
+      // Get current user ID
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
       // Verify payment with backend (MongoDB) - backend updates wallet balance
       final result = await PaymentService.verifyPayment(
         orderId: _orderId!,
         paymentId: response.paymentId!,
         signature: response.signature!,
+        userId: user.uid,
         coins: widget.coins,
       );
 
@@ -255,10 +262,17 @@ class _UPIVerifyScreenState extends State<UPIVerifyScreen> {
     setState(() => _processing = true);
 
     try {
-      // Create order via Firebase Functions
+      // Get current user ID
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Create order via backend
       final orderData = await PaymentService.createOrder(
         amount: widget.amount,
         coins: widget.coins,
+        userId: user.uid,
       );
 
       _orderId = orderData['orderId'] as String;
