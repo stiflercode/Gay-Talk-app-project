@@ -1,6 +1,7 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+// Use conditional import to avoid dart:io on web
+import 'dart:io' if (dart.library.html) 'dart:html' as plat;
 
 /// Centralized API configuration
 /// 
@@ -12,10 +13,10 @@ class ApiConfig {
   // ============================================
   
   /// Set to true for local development, false for production
-  static const bool useLocalDevelopment = true;
+  static const bool useLocalDevelopment = false;
   
-  /// Production base URL (HTTPS)
-  static const String _productionBaseUrl = 'https://gaytalks.gumbotech.in/api';
+  /// Production base URL (AWS EC2 Server)
+  static const String _productionBaseUrl = 'http://13.51.199.238/api';
   
   /// Local development configuration
   // 192.168.29.41 is your computer's local IP address. 
@@ -44,7 +45,16 @@ class ApiConfig {
     if (_isEmulatorCached != null) return;
     
     try {
-      if (Platform.isAndroid) {
+      if (kIsWeb) {
+        _isEmulatorCached = false;
+        return;
+      }
+      
+      // We can't use Platform class directly on web comfortably without universal_io
+      // But we can check kIsWeb first.
+      
+      // For mobile platforms
+      if (defaultTargetPlatform == TargetPlatform.android) {
         final deviceInfo = DeviceInfoPlugin();
         final androidInfo = await deviceInfo.androidInfo;
         
@@ -53,7 +63,7 @@ class ApiConfig {
         debugPrint('ApiConfig: Device is ${_isEmulatorCached! ? "EMULATOR" : "PHYSICAL DEVICE"}');
         debugPrint('ApiConfig: Device model: ${androidInfo.model}');
         debugPrint('ApiConfig: Device brand: ${androidInfo.brand}');
-      } else if (Platform.isIOS) {
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
         final deviceInfo = DeviceInfoPlugin();
         final iosInfo = await deviceInfo.iosInfo;
         _isEmulatorCached = !iosInfo.isPhysicalDevice;

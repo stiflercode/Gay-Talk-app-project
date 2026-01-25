@@ -40,7 +40,7 @@ enum CallState {
 class _CallScreenState extends State<CallScreen> {
   RtcEngine? _engine;
   bool muted = false;
-  bool speakerOn = false;
+  bool speakerOn = true;
   int seconds = 0;
   Timer? timer;
   Timer? _coinDeductionTimer; // Timer for deducting coins every 10 seconds
@@ -238,6 +238,8 @@ class _CallScreenState extends State<CallScreen> {
       await _engine!.initialize(
         RtcEngineContext(
           appId: AgoraConfig.appId,
+          channelProfile: ChannelProfileType.channelProfileCommunication,
+          audioScenario: AudioScenarioType.audioScenarioChatroom,
           logConfig: LogConfig(
             level: kDebugMode ? LogLevel.logLevelInfo : LogLevel.logLevelWarn,
           ),
@@ -256,6 +258,7 @@ class _CallScreenState extends State<CallScreen> {
               _callState = CallState.connected;
               _isConnected = true;
             });
+            _engine?.setEnableSpeakerphone(speakerOn);
             _startTimer();
               _initializeCoinDeduction();
             }
@@ -352,6 +355,7 @@ class _CallScreenState extends State<CallScreen> {
         options: const ChannelMediaOptions(
           clientRoleType: ClientRoleType.clientRoleBroadcaster,
           publishMicrophoneTrack: true,
+          autoSubscribeAudio: true,
         ),
       );
 
