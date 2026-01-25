@@ -1,0 +1,5 @@
+firebase-service-account.json
+.env
+node_modules/
+*.log
+firebase-service-account.TEMPLATE.json
