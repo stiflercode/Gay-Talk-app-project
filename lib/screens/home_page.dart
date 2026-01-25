@@ -47,7 +47,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _balance = widget.prefs.getInt("wallet_balance") ?? 0;
     _initializeWallet();
     _loadUserRole();
-    _setupCallRequestListener();
+    // Don't call _setupCallRequestListener here - wait until we know if user is admin
   }
 
   Future<void> _loadUserRole() async {
@@ -59,6 +59,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         setState(() {
           _currentUserRole = role;
         });
+        
+        // If admin, start RTM immediately
+        if (role == 'admin') {
+          _setupCallRequestListener();
+        }
       }
       // Save FCM token for push notifications
       _saveFCMToken();
@@ -80,28 +85,82 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AgoraRtmService _rtmService = AgoraRtmService();
   bool _isShowingIncomingCall = false;
 
-  void _setupCallRequestListener() async {
+  void _setupCallRequestListener() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final role = _currentUserRole ?? await _userService.getUserRole(user.uid);
-    if (role == 'admin') {
-      // 1. Initialize RTM for Admin
-      await _rtmService.initialize(user.uid);
-      
-      // 2. Listen for RTM Invitations
-      _rtmService.onIncomingCall = (callerId, callerName, channelId) {
-        if (mounted && !_isShowingIncomingCall) {
-          _isShowingIncomingCall = true;
-          _showIncomingCall({
-            'callerId': callerId,
-            'callerName': callerName,
-            'channelName': channelId,
-            'coinsPerMin': 5, // Default or fetch from backend
-          });
-        }
-      };
+    if (user == null) {
+      debugPrint('HomePage: Cannot setup RTM - no user logged in');
+      return;
     }
+
+    // Only admins need to listen for incoming calls
+    if (_currentUserRole != 'admin') {
+      debugPrint('HomePage: Skipping RTM setup - user is not admin (role: $_currentUserRole)');
+      return;
+    }
+
+    debugPrint('HomePage: 🔧 Setting up RTM call listener for ADMIN: ${user.uid}');
+
+    // 1. Define the callback handler
+    void handleIncomingCall(String callerId, String callerName, String channelId) {
+      debugPrint('HomePage: 🔔 INCOMING CALL from $callerName ($callerId) on channel $channelId');
+      
+      // Trigger a system notification as well for better visibility/ringing
+      NotificationService().showIncomingCallNotification(
+        callerName: callerName,
+        callRequestId: channelId, // Use channelId as payload
+      );
+
+      if (mounted && !_isShowingIncomingCall) {
+        _isShowingIncomingCall = true;
+        _showIncomingCall({
+          'callerId': callerId,
+          'callerName': callerName,
+          'channelName': channelId,
+          'coinsPerMin': 5,
+        });
+      }
+    }
+
+    // 2. Set the callback BEFORE initializing RTM (important!)
+    _rtmService.onIncomingCall = handleIncomingCall;
+
+    // 3. Initialize/ensure RTM connection
+    _rtmService.ensureConnected(user.uid).then((_) {
+      // Re-register callback after connection in case it was cleared
+      _rtmService.onIncomingCall = handleIncomingCall;
+      
+      if (mounted) {
+        setState(() {}); // Refresh connection dot
+        if (_rtmService.isConnected) {
+          debugPrint('HomePage: ✅ RTM connected and ready for calls');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Ready for incoming calls'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          debugPrint('HomePage: ⚠️ RTM connection failed');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Signaling connection failed. Tap green/red dot to retry.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    }).catchError((e) {
+      debugPrint('HomePage: ❌ RTM initialization error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    });
   }
 
   void _showIncomingCall(Map<String, dynamic> request) {
@@ -157,10 +216,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _setUserOnlineStatus(true);
+      // Always ensure RTM is connected for admins on resume
+      if (_currentUserRole == 'admin') {
+        debugPrint('HomePage: App resumed, ensuring RTM connection for admin');
+        _setupCallRequestListener();
+      }
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      // Only set offline if you want admins to be unavailable in background
-      // For now, let's keep them online as long as app is in memory?
-      // No, strictly: if app paused, user is offline.
       _setUserOnlineStatus(false);
     }
   }
@@ -334,6 +395,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   Text(
                     "$_balance Coins",
                     style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  // RTM Status Dot (Clickable for admins)
+                  GestureDetector(
+                    onTap: _currentUserRole == 'admin' ? () {
+                      debugPrint('HomePage: Manual RTM reconnect triggered');
+                      _setupCallRequestListener();
+                    } : null,
+                    child: StreamBuilder<void>(
+                      stream: Stream.periodic(const Duration(seconds: 3)),
+                      builder: (context, _) {
+                        final isConnected = _rtmService.isConnected;
+                        return Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isConnected ? Colors.green : Colors.red,
+                            boxShadow: [
+                              if (!isConnected && _currentUserRole == 'admin')
+                                BoxShadow(color: Colors.red.withAlpha(100), blurRadius: 4, spreadRadius: 1),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),

@@ -108,9 +108,10 @@ class _CallScreenState extends State<CallScreen> {
       // 3. Send first invite
       _sendInvite();
       
-      // Start a timeout for acceptance (e.g., 30 seconds)
-      Timer(const Duration(seconds: 30), () {
-        if (_callState == CallState.initializing && !_isFailoverInProgress) {
+      // Start a timeout for acceptance (e.g., 25 seconds)
+      Timer(const Duration(seconds: 25), () {
+        if ((_callState == CallState.initializing || _callState == CallState.connecting) && 
+            !_isFailoverInProgress && !_isConnected) {
           debugPrint("Call timeout for $_currentAdminId. Rolling over...");
           _handleFailover();
         }
@@ -147,21 +148,26 @@ class _CallScreenState extends State<CallScreen> {
     );
     
     if (!success) {
-      debugPrint('CallScreen: RTM invite failed, starting call directly (testing mode)');
-      // For testing: If RTM fails, start the call directly anyway
-      // In production, you might want to show an error or retry
+      debugPrint('CallScreen: RTM invite failed to send');
       if (mounted) {
+        setState(() {
+          _callState = CallState.error;
+          _errorMessage = "Could not reach admin. Please try again.";
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Connecting directly to call...'),
-            duration: Duration(seconds: 2),
+            content: Text('Failed to send call invite. Admin may be offline.'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-      // Start call directly without waiting for admin acceptance
-      _startRtcCall();
     } else {
       debugPrint('CallScreen: RTM invite sent, waiting for admin response...');
+      if (mounted) {
+        setState(() {
+          _callState = CallState.connecting; // This will show "Ringing..."
+        });
+      }
     }
   }
 
@@ -748,7 +754,7 @@ class _CallScreenState extends State<CallScreen> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Minimal Avatar
+          // 👤 Avatar
           Container(
             width: 120,
             height: 120,
@@ -760,6 +766,7 @@ class _CallScreenState extends State<CallScreen> {
           ),
           const SizedBox(height: 32),
 
+          // 📛 Name
           Text(
             name,
             style: const TextStyle(
@@ -771,119 +778,88 @@ class _CallScreenState extends State<CallScreen> {
           
           const SizedBox(height: 16),
           
-          if (_callState != CallState.connected)
-             Padding(
-               padding: const EdgeInsets.only(bottom: 24),
-               child: _buildConnectionStatus(),
-             ),
+          // 📡 Connection Status
+          _buildConnectionStatus(),
 
-          // Timer
-          Text(
-            _formatTime(seconds),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: _callState == CallState.connected ? Colors.black54 : Colors.grey[300],
+          const SizedBox(height: 16),
+
+          // ⏱️ Timer (only visible if connected)
+          if (_callState == CallState.connected)
+            Text(
+              _formatTime(seconds),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
             ),
-          ),
 
 
           const Spacer(),
 
-          /// 🔵 Call Controls
+          // 🔵 Call Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Mute Button
               _controlButton(
                 icon: muted ? Icons.mic_off : Icons.mic,
                 label: muted ? "Muted" : "Mute",
                 color: muted ? Colors.grey : Colors.blue,
                 onTap: () {
                   if (mounted) {
-                  setState(() => muted = !muted);
-                  _engine?.muteLocalAudioStream(muted);
+                    setState(() => muted = !muted);
+                    _engine?.muteLocalAudioStream(muted);
                   }
                 },
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 48),
+              // Speaker Button
               _controlButton(
-                icon: speakerOn ? Icons.volume_up : Icons.volume_mute,
+                icon: speakerOn ? Icons.volume_up : Icons.volume_off,
                 label: "Speaker",
                 color: speakerOn ? Colors.blue : Colors.grey,
                 onTap: () {
                   if (mounted) {
-                  setState(() => speakerOn = !speakerOn);
-                  _engine?.setEnableSpeakerphone(speakerOn);
+                    setState(() => speakerOn = !speakerOn);
+                    _engine?.setEnableSpeakerphone(speakerOn);
                   }
                 },
               ),
             ],
           ),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: 48),
 
-          /// 🔴 End Call Button
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: const CircleBorder(),
-              padding: const EdgeInsets.all(28),
+          // 🔴 End Call Button
+          Padding(
+            padding: const EdgeInsets.only(bottom: 48),
+            child: GestureDetector(
+              onTap: _endCall,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.red,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.call_end, size: 36, color: Colors.white),
+              ),
             ),
-            onPressed: _endCall,
-            child: const Icon(Icons.call_end, size: 34, color: Colors.white),
           ),
-
-          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  /// 🔹 Pill Widget
-  Widget _pill(String text, {Color color = Colors.blue}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withAlpha((0.15 * 255).round()),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  /// 🔹 Control Button
-  Widget _controlButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withAlpha((0.15 * 255).round()),
-            ),
-            child: Icon(icon, size: 30, color: color),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
-    );
-  }
-
+  /// 🔹 Connection Status Widget
   Widget _buildConnectionStatus() {
     String statusText;
     Color statusColor;
@@ -893,17 +869,14 @@ class _CallScreenState extends State<CallScreen> {
       case CallState.initializing:
         statusText = 'Initializing...';
         statusColor = Colors.blue;
-        showSpinner = true;
         break;
       case CallState.connecting:
-        statusText = 'Connecting...';
+        statusText = widget.isCallee ? 'Connecting...' : 'Ringing...';
         statusColor = Colors.orange;
-        showSpinner = true;
         break;
       case CallState.reconnecting:
         statusText = 'Reconnecting...';
         statusColor = Colors.orange;
-        showSpinner = true;
         break;
       case CallState.error:
         statusText = _errorMessage ?? 'Connection error';
@@ -916,53 +889,94 @@ class _CallScreenState extends State<CallScreen> {
         showSpinner = false;
         break;
       case CallState.connected:
-        statusText = _remoteUid == null
-            ? 'Waiting for other user...'
-            : 'Connected';
+        statusText = _remoteUid == null 
+            ? (widget.isCallee ? 'Joining call...' : 'Waiting for admin...') 
+            : 'In Call';
         statusColor = Colors.green;
         showSpinner = _remoteUid == null;
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: statusColor.withAlpha((0.1 * 255).round()),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor, width: 1),
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: statusColor.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showSpinner)
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                ),
               ),
             )
           else
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          const SizedBox(width: 8),
           Text(
             statusText,
             style: TextStyle(
               color: statusColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
       ),
     );
   }
+
+  /// 🔹 Control Button Helper
+  Widget _controlButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withOpacity(0.1),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Icon(icon, size: 28, color: color),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
 }
+

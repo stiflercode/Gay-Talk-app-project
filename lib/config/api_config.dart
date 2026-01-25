@@ -20,7 +20,7 @@ class ApiConfig {
   /// Local development configuration
   // 192.168.29.41 is your computer's local IP address. 
   // Ensure your phone is connected to the SAME Wi-Fi network as your computer.
-  static const String _localDeviceIp = '192.168.29.41'; 
+  static const String _localDeviceIp = '192.168.31.170'; 
   static const String _emulatorIp = '10.0.2.2';
   static const int _localPort = 5000;
   
