@@ -242,6 +242,44 @@ class UserService {
     }
     return 0;
   }
+
+  /// Get masked listeners (virtual identities for Hunt Group feature)
+  /// Users see these virtual identities, but calls route to real admins behind the scenes
+  Stream<List<Map<String, dynamic>>> getMaskedListeners() {
+    return Stream.fromFuture(() async {
+      try {
+        final response = await _makeAuthenticatedRequest((headers) =>
+          http.get(
+            Uri.parse('$baseUrl/masked-listeners'),
+            headers: headers,
+          ).timeout(_timeout)
+        );
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          debugPrint('📋 Fetched ${data.length} masked listeners');
+          return data.cast<Map<String, dynamic>>();
+        }
+      } catch (e) {
+        debugPrint('Error fetching masked listeners: $e');
+      }
+      // Return default masked listener if API fails
+      return <Map<String, dynamic>>[
+        {
+          'maskId': 'listener_1',
+          'uid': 'listener_1',
+          'id': 'listener_1',
+          'displayName': 'Listener 1',
+          'name': 'Listener 1',
+          'languages': ['English', 'Hindi'],
+          'rating': 4.9,
+          'coinsPerMin': 5,
+          'isOnline': true,
+          'isMasked': true,
+        }
+      ];
+    }());
+  }
 }
 
 /// Wrapper class to mimic Firestore DocumentSnapshot interface

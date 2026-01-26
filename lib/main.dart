@@ -18,13 +18,6 @@ import 'screens/profile_screen.dart';
 import 'screens/upi_verify_screen.dart';
 import 'services/notification_service.dart';
 
-// Top-level function for background message handling (must be top-level)
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('Handling background message: ${message.messageId}');
-  // The notification will be shown automatically by FCM
-}
-
 void main() async {
   try {
     debugPrint('🚀 App starting...');
@@ -35,6 +28,11 @@ void main() async {
     debugPrint('🔥 Initializing Firebase...');
     await Firebase.initializeApp();
     debugPrint('✅ Firebase initialized');
+    
+    // 1.5. CRITICAL: Register background message handler BEFORE runApp
+    // This must be done early so FCM can call it when app is terminated
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    debugPrint('✅ Background message handler registered');
 
     // 2. Load preferences
     debugPrint('💾 Loading shared preferences...');
@@ -62,11 +60,23 @@ void main() async {
 
 Future<void> _initializeBackgroundServices() async {
   try {
-    // Set up background message handler
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    // Initialize notification service
+    // Initialize notification service (creates notification channel, etc.)
     await NotificationService().initialize();
+    
+    // Request notification permissions explicitly
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+      criticalAlert: true,
+    );
+    debugPrint('🔔 Notification permission: ${settings.authorizationStatus}');
+    
+    // Get and log FCM token (useful for debugging)
+    final token = await FirebaseMessaging.instance.getToken();
+    debugPrint('📱 FCM Token: ${token?.substring(0, 20)}...');
+    
     debugPrint('✅ Background services ready');
   } catch (e) {
     debugPrint('⚠️ Background init error: $e');

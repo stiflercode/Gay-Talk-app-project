@@ -13,7 +13,7 @@ class ApiConfig {
   // ============================================
   
   /// Set to true for local development, false for production
-  static const bool useLocalDevelopment = false;
+  static const bool useLocalDevelopment = true;
   
   /// Production base URL (AWS EC2 Server)
   static const String _productionBaseUrl = 'http://13.51.199.238/api';

@@ -96,10 +96,16 @@ class _CallScreenState extends State<CallScreen> {
     };
 
     // 2. Initial Routing
+    // Pass maskedListenerId if this is a masked listener (not a real admin ID)
+    final maskedListenerId = widget.speaker['isMasked'] == true 
+        ? (widget.speaker['maskId'] ?? widget.speaker['uid']) 
+        : null;
+    
     try {
       final routeRes = await _callRequestService.routeCall(
         userId: currentUser.uid,
         callerName: currentUser.displayName ?? "User",
+        maskedListenerId: maskedListenerId,
       );
       _currentCallId = routeRes['callId'];
       _currentAdminId = routeRes['adminId'];
@@ -148,26 +154,18 @@ class _CallScreenState extends State<CallScreen> {
     );
     
     if (!success) {
-      debugPrint('CallScreen: RTM invite failed to send');
-      if (mounted) {
-        setState(() {
-          _callState = CallState.error;
-          _errorMessage = "Could not reach admin. Please try again.";
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send call invite. Admin may be offline.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint('CallScreen: RTM invite failed to send (admin likely offline - app handles FCM fallback)');
+      // We DO NOT set error state here anymore. 
+      // The backend already sent an FCM notification which will ring the admin's phone.
+      // We just continue to Ringing state.
     } else {
-      debugPrint('CallScreen: RTM invite sent, waiting for admin response...');
-      if (mounted) {
-        setState(() {
-          _callState = CallState.connecting; // This will show "Ringing..."
-        });
-      }
+      debugPrint('CallScreen: RTM invite sent successfully');
+    }
+
+    if (mounted) {
+      setState(() {
+        _callState = CallState.connecting; // This will show "Ringing..."
+      });
     }
   }
 
@@ -517,19 +515,26 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   /// Initialize coin deduction system - deducts coins every 10 seconds
+  /// Only the caller (user) is charged, never the callee (admin)
   Future<void> _initializeCoinDeduction() async {
     try {
+      // If this is the callee (admin receiving the call), skip coin deduction entirely
+      if (widget.isCallee) {
+        debugPrint('Admin (callee) - no coin deduction');
+        return;
+      }
+
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null || _currentCallId == null) return;
 
       _coinsPerMin ??= 5;
       
-      // Get user role via UserService
+      // Double-check user role via UserService as a safety measure
       _userRole = await UserService().getUserRole(currentUser.uid);
 
       // Only charge regular users, not admins
       if (_userRole != 'user') {
-        debugPrint('Admin user - no coin deduction');
+        debugPrint('Admin user (by role) - no coin deduction');
         return;
       }
 

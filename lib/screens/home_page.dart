@@ -600,16 +600,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
           final users = snapshot.data!.map((data) {
             final uid = data['uid'] ?? data['id'] ?? '';
-            // Generate consistent random rating based on user UID
-            // This ensures each user gets a unique but consistent rating
-            final rating = _generateRandomRating(uid);
+            // Use the rating from backend if available (masked listeners have preset ratings)
+            // Otherwise generate consistent random rating based on user UID
+            final rating = data['rating'] ?? _generateRandomRating(uid);
             
             return {
               'id': data['id'] ?? '',
               'uid': uid,
+              'maskId': data['maskId'], // Masked listener ID (e.g., "listener_1")
+              'isMasked': data['isMasked'] ?? false, // Flag: true if this is a virtual identity
               'name': data['name'] ?? data['displayName'] ?? data['username'] ?? 'User',
               'username': data['username'] ?? '',
-              'status': 'Online',
+              'status': data['isOnline'] == true ? 'Online' : 'Offline',
               'languages': data['languages'] is List ? List<String>.from(data['languages']) : ['English'],
               'rating': rating,
               'coinsPerMin': data['coinsPerMin'] ?? 5,
@@ -802,7 +804,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return Stream.value([]);
     }
     
-    // Filter users based on role: users see only admins, admins see all
+    // For regular users: Return MASKED listeners (virtual identities)
+    // Users will see "Listener 1", "Listener 2" etc. but calls route to real admins
+    if (_currentUserRole == 'user') {
+      debugPrint('📋 User role detected - fetching masked listeners');
+      return _userService.getMaskedListeners();
+    }
+    
+    // For admins: Return real user list (they don't need to see other admins)
     return _userService.getUsersByRole(currentUser.uid, _currentUserRole ?? 'user');
   }
 

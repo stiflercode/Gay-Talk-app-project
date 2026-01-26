@@ -10,6 +10,10 @@ const CallRequestSchema = new mongoose.Schema({
     currentAdminId: String,
     // The original admin intended (for UI masking)
     originalAdminId: String,
+    // The masked listener ID (virtual identity that user sees e.g., "listener_1")
+    maskedListenerId: String,
+    // The display name of the masked listener (e.g., "Listener 1")
+    maskedListenerName: String,
 
     // Track which admins have already been tried/rejected for this call session
     attemptedAdminIds: [String],

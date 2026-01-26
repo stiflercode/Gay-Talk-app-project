@@ -43,9 +43,12 @@ class CallRequestService {
   }
 
   /// 1. Get initial routing for a call (Hunt Group logic)
+  /// maskedListenerId: The virtual listener ID the user clicked on (e.g., "listener_1")
+  /// The backend routes to real admins but tracks the masked identity for UI display
   Future<Map<String, dynamic>> routeCall({
     required String userId,
     required String callerName,
+    String? maskedListenerId,
   }) async {
     final response = await _makeAuthenticatedRequest((headers) => 
       http.post(
@@ -54,6 +57,7 @@ class CallRequestService {
         body: jsonEncode({
           'userId': userId,
           'callerName': callerName,
+          if (maskedListenerId != null) 'maskedListenerId': maskedListenerId,
         }),
       )
     );

@@ -196,3 +196,128 @@ exports.updateWallet = async (req, res) => {
         res.status(500).json({ error: 'Failed to update wallet' });
     }
 };
+
+// Get masked listeners (virtual identities that users see)
+// These are NOT real admin accounts - they are fictional identities
+// Calls to any masked listener are routed to available real admins
+const AdminGroup = require('../models/AdminGroup');
+
+exports.getMaskedListeners = async (req, res) => {
+    try {
+        const mongoose = require('mongoose');
+
+        // Find the default admin group
+        const group = await AdminGroup.findOne({ groupId: 'default' });
+
+        if (!group) {
+            // Return default masked listeners if no group configured
+            return res.json([
+                {
+                    maskId: 'listener_1',
+                    uid: 'listener_1', // For compatibility with frontend
+                    id: 'listener_1',
+                    displayName: 'Listener 1',
+                    name: 'Listener 1',
+                    languages: ['English', 'Hindi'],
+                    rating: 4.9,
+                    coinsPerMin: 5,
+                    isOnline: true,
+                    isMasked: true // Flag to indicate this is a masked identity
+                }
+            ]);
+        }
+
+        // Check if any real admins are online
+        const onlineAdmins = await User.find({
+            uid: { $in: group.adminIds },
+            isOnline: true
+        });
+        const hasOnlineAdmin = onlineAdmins.length > 0;
+
+        // If no masked listeners configured, create default ones
+        if (!group.maskedListeners || group.maskedListeners.length === 0) {
+            const defaultListeners = [
+                {
+                    maskId: 'listener_1',
+                    uid: 'listener_1',
+                    id: 'listener_1',
+                    displayName: 'Listener 1',
+                    name: 'Listener 1',
+                    languages: ['English', 'Hindi'],
+                    rating: 4.9,
+                    coinsPerMin: 5,
+                    isOnline: hasOnlineAdmin, // Show online if any admin is online
+                    isMasked: true
+                }
+            ];
+            return res.json(defaultListeners);
+        }
+
+        // Return configured masked listeners
+        const maskedListeners = group.maskedListeners
+            .filter(listener => listener.isActive !== false)
+            .map(listener => ({
+                maskId: listener.maskId,
+                uid: listener.maskId, // For frontend compatibility
+                id: listener.maskId,
+                displayName: listener.displayName,
+                name: listener.displayName,
+                languages: listener.languages || ['English'],
+                rating: listener.rating || 4.8,
+                coinsPerMin: listener.coinsPerMin || 5,
+                isOnline: hasOnlineAdmin, // All masked listeners show online if any admin is online
+                isMasked: true
+            }));
+
+        console.log(`📋 Returning ${maskedListeners.length} masked listeners (${onlineAdmins.length} real admins online)`);
+        res.json(maskedListeners);
+
+    } catch (error) {
+        console.error('Get masked listeners error:', error);
+        res.status(500).json({ error: 'Failed to fetch listeners' });
+    }
+};
+
+// Admin endpoint: Create or update masked listeners
+exports.updateMaskedListeners = async (req, res) => {
+    try {
+        const { listeners } = req.body;
+
+        // Validate that caller is admin
+        const callerUser = await User.findOne({ uid: req.user.uid });
+        if (!callerUser || callerUser.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        // Find or create the default admin group
+        let group = await AdminGroup.findOne({ groupId: 'default' });
+
+        if (!group) {
+            group = new AdminGroup({
+                groupId: 'default',
+                name: 'Main Hunt Group',
+                adminIds: [req.user.uid],
+                maskedListeners: []
+            });
+        }
+
+        // Update masked listeners
+        group.maskedListeners = listeners.map((l, index) => ({
+            maskId: l.maskId || `listener_${index + 1}`,
+            displayName: l.displayName || `Listener ${index + 1}`,
+            languages: l.languages || ['English'],
+            rating: l.rating || 4.8,
+            coinsPerMin: l.coinsPerMin || 5,
+            isActive: l.isActive !== false
+        }));
+
+        await group.save();
+
+        console.log(`✅ Updated ${group.maskedListeners.length} masked listeners`);
+        res.json({ success: true, maskedListeners: group.maskedListeners });
+
+    } catch (error) {
+        console.error('Update masked listeners error:', error);
+        res.status(500).json({ error: 'Failed to update listeners' });
+    }
+};

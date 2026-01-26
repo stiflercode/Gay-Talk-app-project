@@ -12,9 +12,10 @@ app.use(express.json());
 
 // Request Logging Middleware
 app.use((req, res, next) => {
-    console.log(`📡 ${req.method} ${req.url}`);
-    if (req.method === 'POST') {
-        console.log('📦 Body keys:', Object.keys(req.body));
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 📡 ${req.method} ${req.url}`);
+    if (req.method === 'POST' || req.method === 'PUT') {
+        console.log('📦 Body:', JSON.stringify(req.body, null, 2));
     }
     next();
 });
@@ -26,6 +27,27 @@ try {
 
     if (fs.existsSync(serviceAccountPath)) {
         const serviceAccount = require(serviceAccountPath);
+
+        // Fix for potential newline issues in private key
+        if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+        }
+
+        console.log('📂 Service Account loaded for project:', serviceAccount.project_id);
+        console.log('🕒 Current Server Time:', new Date().toISOString());
+
+        // Check if year is potentially wrong (e.g., 2026 instead of 2025/2024)
+        const currentYear = new Date().getFullYear();
+        if (currentYear > 2025) {
+            console.error('\n' + '!'.repeat(60));
+            console.error('🚨 CRITICAL ERROR: YOUR SYSTEM CLOCK IS WRONG! 🚨');
+            console.error(`Current Year is ${currentYear}. Firebase will REJECT all requests.`);
+            console.error('Please set your computer date to the CURRENT date/time.');
+            console.error('!'.repeat(60) + '\n');
+        }
+
+        console.log('🔑 Private Key exists:', !!serviceAccount.private_key);
+
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
             projectId: serviceAccount.project_id || 'gey-talk'
@@ -48,6 +70,7 @@ mongoose.connect(MONGODB_URI)
 
 // Routes
 app.get('/', (req, res) => {
+    console.log('🌍 Root endpoint hit!');
     res.send('GayTalk Backend is Running');
 });
 
